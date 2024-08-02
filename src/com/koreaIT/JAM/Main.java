@@ -101,6 +101,8 @@ public class Main {
     					System.out.printf("%d	|	%s\n", article.getId(), article.getTitle());
     				}
     			} else if (cmd.startsWith("article deteil ")) {
+    				List<Article> articles = new ArrayList<>();
+    				
     		        try {
     		        	int id = Integer.parseInt(cmd.split(" ")[2]);
     		        	
@@ -114,24 +116,22 @@ public class Main {
     		            
     		            while (rs.next()) {
     		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
+    		            	articles.add(article);
     		            }
     		            
     		            if (article == null) {
     		            	System.out.printf("%d번 게시물은 존재하지 않습니다\n", id);
     		            	continue;
     		            }
-    		            
-    		            System.out.println("제목	|	내용");
-    		            while (rs.next()) {
-    		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
-    		            	System.out.printf("%s	|	%s\n", article.getTitle(), article.getBody());
-    		            	System.out.println(article.getTitle());
-    		            }
     		        } catch (NumberFormatException e) {
     		        	System.out.println("명령어를 확인해주세요");
 					} catch (SQLException e) {
     		            e.printStackTrace();
     		        }
+    		        System.out.println("제목	|	내용");
+    		        for (Article article : articles) {
+    					System.out.printf("%s	|	%s\n", article.getTitle(), article.getBody());
+    				}
     			} else if (cmd.startsWith("article modify ")) {
     		        try {
     		        	int id = Integer.parseInt(cmd.split(" ")[2]);
