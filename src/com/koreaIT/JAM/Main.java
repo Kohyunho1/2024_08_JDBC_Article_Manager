@@ -7,9 +7,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 import com.koreaIT.JAM.dto.Article;
+import com.koreaIT.JAM.util.DBUtil;
+import com.koreaIT.JAM.util.SecSql;
 
 public class Main {
 	public static void main(String[] args) {
@@ -17,15 +20,13 @@ public class Main {
 		
 		Scanner sc = new Scanner(System.in);
 		
-		int lastArticleId = 1;
-		
 		String url = "jdbc:mysql://localhost:3306/2024_08_JAM?useUnicode=true&characterEncoding=utf8&autoReconnect=true&serverTimezone=Asia/Seoul&useOldAliasMetadataBehavior=true&zeroDateTimeNehavior=convertToNull";
         String username = "root";
         String password = "";
 		
         Connection conn = null;
-        PreparedStatement pstmt = null;
-        ResultSet rs = null;
+        PreparedStatement pstmt = null; //test
+        ResultSet rs = null; //test
         
         try {
         	conn = DriverManager.getConnection(url, username, password);
@@ -49,89 +50,66 @@ public class Main {
     				System.out.printf("내용 : ");
     				String body = sc.nextLine().trim();
     				
-    				try {
-    		            String sql = "INSERT INTO article";
-    		            sql += " SET regDate = NOW()";
-    		            sql += ", updateDate = NOW()";
-    		            sql += ", title = '" + title + "'";
-    		            sql += ", `body` = '" + body + "';";
-    		            
-    		            pstmt = conn.prepareStatement(sql);
-    		            pstmt.executeUpdate();
-    		            
-    		        } catch (SQLException e) {
-    		            e.printStackTrace();
-    		        }
+					SecSql sql = new SecSql();
+					sql.append("INSERT INTO article");
+					sql.append("SET regDate = NOW()");
+					sql.append(", updateDate = NOW()");
+					sql.append(", title = ?", title);
+					sql.append(", `body` = ?", body);
+					
+					int id = DBUtil.insert(conn, sql);
+					
+    				System.out.printf("%d번 게시물이 작성되었습니다\n", id);
     				
-    				System.out.printf("%d번 게시물이 작성되었습니다\n", lastArticleId);
-    				lastArticleId++;
     			} else if (cmd.equals("article list")) {
     		        List<Article> articles = new ArrayList<>();
     		        
-    		        try {
-    		            String sql = "SELECT * FROM article";
-    		            sql += " ORDER BY id DESC;";
-    		            
-    		            pstmt = conn.prepareStatement(sql);
-    		            rs = pstmt.executeQuery();
-    		            
-    		            while (rs.next()) {
-    		            	int id = rs.getInt("id");
-    		            	String regDate = rs.getString("regDate");
-    		            	String updateDate = rs.getString("updateDate");
-    		            	String title = rs.getString("title");
-    		            	String body = rs.getString("body");
-    		            	
-    		            	Article article = new Article(id, regDate, updateDate, title, body);
-    		            	
-    		            	articles.add(article);
-    		            }
-    		            
-    		        } catch (SQLException e) {
-    		            e.printStackTrace();
-    		        }
-    				
+		        	SecSql sql = new SecSql();
+					sql.append("SELECT * FROM article");
+					sql.append("ORDER BY id DESC");
+		            
+					List<Map<String, Object>> articleListMap = DBUtil.selectRows(conn, sql);
+					
+					for (Map<String, Object> articleMap : articleListMap) {
+						articles.add(new Article(articleMap));
+					}
+					
     				if (articles.size() == 0) {
     					System.out.println("게시물이 없습니다");
     					continue;
     				}
     				
-    				System.out.println("번호	|	제목");
+    				System.out.println("번호	|	제목	|	작성일");
     				for (Article article : articles) {
-    					System.out.printf("%d	|	%s\n", article.getId(), article.getTitle());
+    					System.out.printf("%d	|	%s	|	%s\n", article.getId(), article.getTitle(), article.getUpdateDate());
     				}
     			} else if (cmd.startsWith("article detail ")) {
+    				int id = -1;
+    				
     		        try {
-    		        	int id = Integer.parseInt(cmd.split(" ")[2]);
-    		        	
-    		            String sql = "SELECT * FROM article";
-    		            sql += " WHERE id = " + id + ";";
-    		            
-    		            pstmt = conn.prepareStatement(sql);
-    		            rs = pstmt.executeQuery();
-    		            
-    		            Article article = null;
-    		            
-    		            while (rs.next()) {
-    		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
-    		            }
-    		            
-    		            if (article == null) {
-    		            	System.out.printf("%d번 게시물은 존재하지 않습니다\n", id);
-    		            	continue;
-    		            }
-    		            
-    		            System.out.printf("번호 : %d\n", article.getId());
-    		            System.out.printf("작성일 : %s\n", article.getRegDate());
-    		            System.out.printf("수정일 : %s\n", article.getUpdateDate());
-    		            System.out.printf("제목 : %s\n", article.getTitle());
-    		            System.out.printf("내용 : %s\n", article.getBody());
-    		            
+    		        	id = Integer.parseInt(cmd.split(" ")[2]);
     		        } catch (NumberFormatException e) {
     		        	System.out.println("명령어를 확인해주세요");
-					} catch (SQLException e) {
-    		            e.printStackTrace();
-    		        }
+    		        	continue;
+					}
+    		        
+    		        SecSql sql = SecSql.from("SELECT * FROM article");
+					sql.append("WHERE id = ?", id);
+					
+					Map<String, Object> articleMap = DBUtil.selectRow(conn, sql);
+					
+					if (articleMap.isEmpty()) {
+		            	System.out.printf("%d번 게시물은 존재하지 않습니다\n", id);
+		            	continue;
+			        }
+					
+		            Article article = new Article(articleMap);
+		            
+		            System.out.printf("번호 : %d\n", article.getId());
+		            System.out.printf("작성일 : %s\n", article.getRegDate());
+		            System.out.printf("수정일 : %s\n", article.getUpdateDate());
+		            System.out.printf("제목 : %s\n", article.getTitle());
+		            System.out.printf("내용 : %s\n", article.getBody());
     			} else if (cmd.startsWith("article modify ")) {
     		        try {
     		        	int id = Integer.parseInt(cmd.split(" ")[2]);
@@ -144,9 +122,9 @@ public class Main {
     		            
     		            Article article = null;
     		            
-    		            while (rs.next()) {
-    		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
-    		            }
+//    		            while (rs.next()) {
+//    		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
+//    		            }
     		            
     		            if (article == null) {
     		            	System.out.printf("%d번 게시물은 존재하지 않습니다\n", id);
@@ -185,9 +163,9 @@ public class Main {
     		            
     		            Article article = null;
     		            
-    		            while (rs.next()) {
-    		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
-    		            }
+//    		            while (rs.next()) {
+//    		            	article = new Article(rs.getInt("id"), rs.getString("regDate"), rs.getString("updateDate"), rs.getString("title"), rs.getString("body"));
+//    		            }
     		            
     		            if (article == null) {
     		            	System.out.printf("%d번 게시물은 존재하지 않습니다\n", id);
